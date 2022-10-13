@@ -17,36 +17,15 @@ void readfile(char* buf, FILE* fp, int size) {
 	}
 }
 
-pkthdr change_endian_header(pkthdr header) {
-	char* big_endian = (char*)&header;
-	char little_endian[24];
-	memset(little_endian, 0, sizeof(char)*24);
+pkthdr change_header(pkthdr header){
+	pkthdr result;
 
-	little_endian[0] = big_endian[0];
-	little_endian[1] = big_endian[1];
-	little_endian[2] = big_endian[2];
-	little_endian[3] = big_endian[3];
-	// timeval sec(big_endian)
+	result.time.tv_sec = *(int*)&header;
+	result.time.tv_usec = *((int*)&header + 1);
+	result.caplen = *((int*)&header + 2);
+	result.len = *((int*)&header + 3);
 
-	little_endian[12] = big_endian[7];
-	little_endian[13] = big_endian[6];
-	little_endian[14] = big_endian[5];
-	little_endian[15] = big_endian[4];
-	// timeval usec(little_endian)
-
-	little_endian[16] = big_endian[11];
-	little_endian[17] = big_endian[10];
-	little_endian[18] = big_endian[9];
-	little_endian[19] = big_endian[8];
-	// caplen
-
-	little_endian[20] = big_endian[15];
-	little_endian[21] = big_endian[14];
-	little_endian[22] = big_endian[13];
-	little_endian[23] = big_endian[12];
-	// len
-
-	return *( (pkthdr*) little_endian );
+	return result;
 }
 
 void printtime(struct tm* tm){
@@ -83,10 +62,10 @@ int main(){
 	// Read file information
 
 	pkthdr header;
-	readfile((char*)&header, fp, 16);
-	printhexa((unsigned char*)&header, 16);
-	header = change_endian_header(header);
-	printhexa((unsigned char*)&header, 24);
+	//readfile((char*)&header, fp, 16);
+	//printhexa((unsigned char*)&header, 16);
+	header = change_header(header);
+	//printhexa((unsigned char*)&header, 24);
 
 	struct tm* time;
 	time = localtime(&header.time.tv_sec);
@@ -94,11 +73,9 @@ int main(){
 		printf("Time conversion Error!\n");
 		exit(-1);
 	}
-	printtime(time);
-	int a = 96;
-	printhexa((unsigned char*)&a,4);
+	//printtime(time);
+	//printf("%ld %d %d",header.time.tv_usec,header.caplen,header.len);
 
-	printf("%ld %d %d",header.time.tv_usec,header.caplen,header.len);
 
 	puts("");
 	return 0;
