@@ -101,21 +101,6 @@ void print_ip_addr(iphdr ip_header){
 	char str2[20];
 	sprintf( str2, "%u.%u.%u.%u", ip_header.dest_addr[0], ip_header.dest_addr[1], ip_header.dest_addr[2], ip_header.dest_addr[3]);
 	printf("  %-16s%2s%17s", str1, "->", str2);
-	/*
-	for(int i = 0; i < 4; i++){
-		printf("%u", ip_header.src_addr[i]);
-		if(i != 3)
-			printf(".");
-	}
-	*/
-	/*
-	printf(" ->  ");
-	for(int i = 0; i < 4; i++){
-		printf("%u", ip_header.dest_addr[i]);
-		if(i != 3)
-			printf(".");
-	}
-	*/
 	printf("    ");
 }
 	
@@ -163,7 +148,7 @@ void print_ip_protocol(unsigned char protocol){
 }
 
 void print_ip_flags(unsigned short identification){
-	printf("%9u%6u", (identification & 1 << 14) >> 14, (identification & 1 << 13) >> 13);
+	printf("%9u%6u", (identification & (1 << 14)) >> 14, (identification & (1 << 13)) >> 13);
 }
 	
 // for debug
@@ -187,33 +172,20 @@ int main(){
 		printf("File open failed!\n");
 		return 0;
 	}
-	//printf("%d\n",sizeof(iphdr));
 	char buffer[30000];		// 정해진 size만큼 읽기 위한 buffer
 	
 	readfile(buffer, fp, 24);
-	//printhexa((unsigned char*)buffer, 24);
 	// Read file information
 	
 	int packet_no = 0;
-	printf("%5s%20s%20s%21s%18s%20s%12s%16s%6s%6s%7s%7s\n", "No. ", "Time        ", "Source MAC     ", "Destination MAC   ","Souce IP     ", "Destination IP  ", "protocol  ", "Identification ", "DF  ", "MF  ", "TTL  ", "ToS  ");
+	printf("%5s%20s%20s%21s%18s%20s%12s%16s%6s%6s%7s%7s%17s%17s%24s\n", "No. ", "Time        ", "Source MAC     ", "Destination MAC   ","Souce IP     ", "Destination IP  ", "protocol  ", "Identification ", "DF  ", "MF  ", "TTL  ", "ToS  ", "captured length ", "actual length  ", "length in the IP header");
 	while(1){
 		packet_no++;
 		pkthdr pkt_header;
 		readfile((char*)&pkt_header, fp, 16);
 		printf("%5d",packet_no);
-		//printhexa((unsigned char*)&pkt_header, 16);
 		pkt_header = change_header(pkt_header);
-		//printf("  %u %u  ", pkt_header.caplen, pkt_header.len);
-		//printhexa((unsigned char*)&header, 24);
 		
-		/*
-		struct tm* time;
-		time = localtime(&pkt_header.time.tv_sec);
-		if(time == NULL){
-			printf("Time conversion Error!\n");
-			exit(-1);
-		}
-		*/
 		printtime(pkt_header.time);
 		//printf("%ld %d %d",header.time.tv_usec,header.caplen,header.len);
 		// Read pcap_pkthdr
@@ -229,9 +201,7 @@ int main(){
 				arpflag = 0;
 		}
 
-		//printhexa((unsigned char*)&eth_header, 14);
 		print_MAC_addr(eth_header);
-		//puts("");
 		// Read ethernet header
 		if(arpflag){
 			readfile(buffer, fp, pkt_header.len - 14);
@@ -241,27 +211,33 @@ int main(){
 	
 		iphdr ip_header;
 		readfile((char*)&ip_header, fp, 20);
+		unsigned char ip_ver = ((unsigned char*)&ip_header)[0];
+		int isipv6 = 0;
+		if( (ip_ver & 0B11110000) == 0B01100000){
+			isipv6 = 1;
+		}
 		ip_header.header_length &= 15; // 0000 1111
 		change_endian_iphdr(&ip_header);
-		/*if(ip_header.header_length > 5){
-			printf("\n%d\n", ip_header.header_length);
-			return 0;
-		}*/
-		//printhexa((unsigned char*)&ip_header, 20);
-		//printf("%u\n", ip_header.header_length);
-		//printf("%hu\n", ip_header.total_length);
-		print_ip_addr(ip_header);
-		//printf("\n");
-		print_ip_protocol(ip_header.protocol);
-		//printf("\n");
-		printf("%8s%-5hu", "", ip_header.identification);
-		print_ip_flags(ip_header.identification);
-		//puts("");
-		printf("    %3u", ip_header.TTL);
-		printf("    %3u\n", ip_header.TOS);
-		//printf("%d\n\n", ip_header.total_length);
-		readfile(buffer, fp, pkt_header.len - 34);
-		if(packet_no == 14149)
+		if(ip_header.header_length > 5)
+			readfile(buffer, fp, (ip_header.header_length - 5) * 4);	// Read ip_header option
+		
+		if(isipv6)
+			printf("  //////////  IPv6  //////////  IPv6  //////////  IPv6  //////////  IPv6  //////////  IPv6  //////////  IPv6  //////////  IPv6  //////////\n");
+		else{
+			print_ip_addr(ip_header);
+			print_ip_protocol(ip_header.protocol);
+			printf("%8s%-5hu", "", ip_header.identification);
+			print_ip_flags(ip_header.fragment_offset);
+			printf("    %3u", ip_header.TTL);
+			printf("    %3u", ip_header.TOS);
+			printf("%12u%5s%12u%5s%15u\n", pkt_header.caplen, "", pkt_header.len, "", ip_header.total_length);
+		}
+
+		if(isipv6)
+			readfile(buffer, fp, pkt_header.len - 34);
+		else
+			readfile(buffer, fp, pkt_header.len - ip_header.header_length * 4 - 14);	// actual length - ip_header length - ethernet header length
+		if(packet_no == 15685)
 			return 0;
 	}
 	puts("");
