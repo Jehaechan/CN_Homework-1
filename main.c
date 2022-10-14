@@ -243,6 +243,10 @@ int main(){
 		readfile((char*)&ip_header, fp, 20);
 		ip_header.header_length &= 15; // 0000 1111
 		change_endian_iphdr(&ip_header);
+		/*if(ip_header.header_length > 5){
+			printf("\n%d\n", ip_header.header_length);
+			return 0;
+		}*/
 		//printhexa((unsigned char*)&ip_header, 20);
 		//printf("%u\n", ip_header.header_length);
 		//printf("%hu\n", ip_header.total_length);
@@ -257,7 +261,7 @@ int main(){
 		printf("    %3u\n", ip_header.TOS);
 		//printf("%d\n\n", ip_header.total_length);
 		readfile(buffer, fp, pkt_header.len - 34);
-		if(packet_no == 10)
+		if(packet_no == 14149)
 			return 0;
 	}
 	puts("");
